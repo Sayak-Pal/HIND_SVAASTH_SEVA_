@@ -1,62 +1,68 @@
-"use client"
+"use client";
 
-import React, { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Send, Bot, User, Paperclip, X } from "lucide-react"
+import React, { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Send, Bot, User, Paperclip, X } from "lucide-react";
 
 export default function Chatbot() {
-  const [messages, setMessages] = useState<{ role: "user" | "bot"; content: string }[]>([])
-  const [input, setInput] = useState("")
-  const [isOpen, setIsOpen] = useState(false)
-  const [isTyping, setIsTyping] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const [messages, setMessages] = useState<{ role: "user" | "bot"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return
+    if (!input.trim()) return;
 
-    const newMessages = [...messages, { role: "user", content: input }]
-    setMessages(newMessages)
-    setInput("")
-    setIsTyping(true)
+    const newMessages = [...messages, { role: "user", content: input }];
+    setMessages(newMessages);
+    setInput("");
+    setIsTyping(true);
 
-    // Call Gemini API
     try {
       const res = await fetch("/api/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: newMessages }),
-      })
+      });
 
-      const data = await res.json()
-      setMessages([...newMessages, { role: "bot", content: data.reply }])
+      const data = await res.json();
+
+      setMessages([
+        ...newMessages,
+        { role: "bot", content: data.text || "No response from Gemini." },
+      ]);
     } catch (error) {
-      console.error("Error fetching Gemini response:", error)
-      setMessages([...newMessages, { role: "bot", content: "Error: Could not fetch response." }])
+      console.error("Error fetching Gemini response:", error);
+      setMessages([
+        ...newMessages,
+        { role: "bot", content: "Error: Could not fetch response." },
+      ]);
     }
 
-    setIsTyping(false)
-  }
+    setIsTyping(false);
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files?.length) {
-      setFile(event.target.files[0])
+      setFile(event.target.files[0]);
     }
-  }
+  };
 
   const removeFile = () => {
-    setFile(null)
+    setFile(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+      fileInputRef.current.value = "";
     }
-  }
+  };
 
   return (
     <>
@@ -143,5 +149,5 @@ export default function Chatbot() {
         </Card>
       )}
     </>
-  )
+  );
 }
