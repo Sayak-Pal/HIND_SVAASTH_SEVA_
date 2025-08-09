@@ -1,20 +1,43 @@
-// /pages/api/gemini.ts
-import type { NextApiRequest, NextApiResponse } from "next"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { NextResponse } from 'next/server';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).end()
+export async function POST(req: Request) {
   try {
-    const { prompt, history } = req.body
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
-    const chat = model.startChat({ history })
-    const result = await chat.sendMessage(prompt)
-    const text = result.response.text()
-    res.status(200).json({ response: text })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ response: "Error fetching Gemini response." })
+    const { messages } = await req.json();
+
+    // Ensure API key exists
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: "Missing Gemini API key. Set GEMINI_API_KEY in .env.local" },
+        { status: 500 }
+      );
+    }
+
+    // Call Gemini API
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY, // ✅ API key from env
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: messages.map((msg: any) => ({ text: msg.content })),
+            },
+          ],
+        }),
+      }
+    );
+
+    // Parse API response
+    const data = await response.json();
+    return NextResponse.json(data);
+
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
