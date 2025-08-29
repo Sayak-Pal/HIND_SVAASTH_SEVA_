@@ -45,7 +45,7 @@ export default function Chatbot() {
     setIsTyping(false);
   };
 
-  // 🔽 Auto-scroll when messages change or chat opens
+  // 🔽 Auto-scroll to latest message
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
