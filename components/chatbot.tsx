@@ -1,59 +1,24 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import * as pdfjsLib from "pdfjs-dist";
 
-// Load PDF worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.js`;
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { X, MessageCircle } from "lucide-react";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: "user" | "bot"; content: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [pdfText, setPdfText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
-
-  // Extract PDF text
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async function () {
-      const typedarray = new Uint8Array(this.result as ArrayBuffer);
-      const pdf = await pdfjsLib.getDocument(typedarray).promise;
-
-      let text = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map((s: any) => s.str).join(" ") + "\n";
-      }
-      setPdfText(text);
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  // Send to Gemini API
   const handleSend = async () => {
-    if (!input.trim() && !pdfText.trim()) return;
+    if (!input.trim()) return;
 
-    const userMessage = input.trim() + (pdfText ? `\n\n[PDF Content]: ${pdfText}` : "");
-
-    const newMessages = [...messages, { role: "user", content: userMessage }];
+    const newMessages = [...messages, { role: "user", content: input }];
     setMessages(newMessages);
     setInput("");
-    setPdfText("");
     setIsTyping(true);
 
     try {
@@ -80,6 +45,13 @@ export default function Chatbot() {
     setIsTyping(false);
   };
 
+  // 🔽 Auto-scroll when messages change or chat opens
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isOpen]);
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {/* Floating Button */}
@@ -87,7 +59,7 @@ export default function Chatbot() {
         className="rounded-full w-14 h-14 shadow-lg flex items-center justify-center bg-blue-600 hover:bg-blue-700"
         onClick={() => setIsOpen(!isOpen)}
       >
-        {isOpen ? <X className="w-6 h-6 text-white" /> : <Bot className="w-6 h-6 text-white" />}
+        {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageCircle className="w-6 h-6 text-white" />}
       </Button>
 
       {/* Fullscreen Chatbox */}
@@ -97,66 +69,47 @@ export default function Chatbot() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-white shadow-2xl flex flex-col"
+            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
           >
-            <Card className="w-full h-full flex flex-col rounded-none">
-              <CardHeader className="flex justify-between items-center p-4 bg-blue-600 text-white">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <Bot className="w-5 h-5" /> AI Assistant
-                </h2>
-                <Button
-                  variant="ghost"
-                  className="text-white hover:bg-blue-700"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </CardHeader>
-
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-start gap-2 ${
-                      msg.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {msg.role === "bot" && (
-                      <Bot className="w-6 h-6 text-blue-600 mt-1 shrink-0" />
-                    )}
+            <Card className="w-full h-full max-w-3xl flex flex-col">
+              <CardContent className="flex flex-col h-full p-4">
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+                  {messages.map((msg, i) => (
                     <div
-                      className={`px-4 py-2 rounded-2xl max-w-[75%] shadow ${
+                      key={i}
+                      className={`p-2 rounded-lg max-w-xs ${
                         msg.role === "user"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-900"
+                          ? "bg-blue-600 text-white ml-auto"
+                          : "bg-gray-200 text-gray-900"
                       }`}
                     >
                       {msg.content}
                     </div>
-                    {msg.role === "user" && (
-                      <User className="w-6 h-6 text-gray-600 mt-1 shrink-0" />
-                    )}
-                  </div>
-                ))}
+                  ))}
+                  {isTyping && <div className="text-gray-500">Bot is typing...</div>}
+                  <div ref={messagesEndRef} />
+                </div>
 
-                {isTyping && (
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <Bot className="w-5 h-5" />
-                    <span className="animate-pulse">Typing...</span>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
+                {/* Input */}
+                <div className="flex">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="flex-1 border rounded-l-lg p-2 focus:outline-none"
+                    placeholder="Type a message..."
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  />
+                  <Button onClick={handleSend} className="rounded-r-lg bg-blue-600 hover:bg-blue-700">
+                    Send
+                  </Button>
+                </div>
               </CardContent>
-
-              <div className="p-4 border-t flex items-center gap-2">
-                <Input
-                  placeholder="Type a message..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                />
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handlePdfUpload}
-                  class
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
