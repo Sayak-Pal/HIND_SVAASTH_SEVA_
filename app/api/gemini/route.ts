@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
+const GEMINI_API_KEY = "AIzaSyDJ9ZXD4a6IhPamYP3DtJ28BUbBfKzj3JE"; // 🔴 Replace with your actual Gemini API key
+
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "Missing Gemini API key. Set GEMINI_API_KEY in .env.local" },
+        { error: "Missing Gemini API key" },
         { status: 500 }
       );
     }
@@ -25,7 +27,7 @@ export async function POST(req: Request) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY,
+          "x-goog-api-key": GEMINI_API_KEY,
         },
         body: JSON.stringify(payload),
       }
