@@ -8,7 +8,7 @@ A comprehensive full-stack healthcare web application built with Next.js, React,
 - **Landing Page**: Overview of services with call-to-action buttons
 - **Hospital & Doctor Listings**: Browse healthcare providers with search and filters
 - **Services Information**: Detailed information about available medical services
-- **Contact Information**: Multiple ways to reach support
+- **Contact Information**: Multiple ways to reach support.
 - **Chatbot Widget**: AI-powered assistant available on all pages
 
 ### Authentication System
