@@ -8,7 +8,9 @@ import { X, MessageCircle } from "lucide-react";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
+    []
+  );
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,11 @@ export default function Chatbot() {
         className="rounded-full w-14 h-14 shadow-lg flex items-center justify-center bg-blue-600 hover:bg-blue-700"
         onClick={() => setIsOpen(!isOpen)}
       >
-        {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageCircle className="w-6 h-6 text-white" />}
+        {isOpen ? (
+          <X className="w-6 h-6 text-white" />
+        ) : (
+          <MessageCircle className="w-6 h-6 text-white" />
+        )}
       </Button>
 
       {/* Fullscreen Chatbox */}
@@ -80,28 +86,30 @@ export default function Chatbot() {
                       key={i}
                       className={`p-2 rounded-lg max-w-xs ${
                         msg.role === "user"
-                          ? "bg-blue-600 text-white ml-auto"
-                          : "bg-gray-200 text-gray-900"
+                          ? "bg-blue-500 text-white self-end"
+                          : "bg-gray-200 text-black self-start"
                       }`}
                     >
                       {msg.content}
                     </div>
                   ))}
-                  {isTyping && <div className="text-gray-500">Bot is typing...</div>}
+                  {isTyping && (
+                    <div className="text-gray-500 text-sm">Bot is typing...</div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input */}
-                <div className="flex">
+                <div className="flex space-x-2">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 border rounded-l-lg p-2 focus:outline-none"
-                    placeholder="Type a message..."
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    placeholder="Type a message..."
+                    className="flex-1 border rounded-lg px-3 py-2 focus:outline-none"
                   />
-                  <Button onClick={handleSend} className="rounded-r-lg bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={handleSend} className="bg-blue-600 text-white">
                     Send
                   </Button>
                 </div>
