@@ -1,94 +1,132 @@
-"use client";
+"use client"
 
-import { useState } from "react";
+import { useState } from "react"
+import { motion } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 export default function Chatbot() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ text: string; role: "user" | "model" }[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<{ role: string; text: string }[]>([])
+  const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  // ✅ Local FAQ responses
+  function getFAQResponse(message: string): string | null {
+    message = message.toLowerCase()
+
+    if (message.includes("book") && message.includes("appointment"))
+      return "To book an appointment, click on 'Book Appointment' on the homepage. Login first, then select hospital, doctor, and slot."
+
+    if (message.includes("services") || message.includes("what do you offer"))
+      return "We offer General Consultation, Specialist Care, Emergency Services, and Health Checkups."
+
+    if (message.includes("hospital") && message.includes("location"))
+      return "We have partner hospitals across India. Details are on our Hospitals page."
+
+    if (message.includes("emergency") || message.includes("urgent"))
+      return "For emergencies call +91 1800-123-4567. For non-emergency, book online."
+
+    if (message.includes("payment") || message.includes("pay"))
+      return "We accept online payments, insurance, and cash."
+
+    if (message.includes("login") || message.includes("register") || message.includes("account"))
+      return "Use the top navigation to register or login. Registration is free."
+
+    if (message.includes("contact") || message.includes("phone") || message.includes("email"))
+      return "📞 +91 1800-123-4567 | 📧 info@hindswaasthseva.com | 📍 Healthcare Plaza, Sector 18, New Delhi"
+
+    if (message.includes("hello") || message.includes("hi") || message.includes("hey"))
+      return "Hello! Welcome to HIND SWAASTH SEVA. How can I help?"
+
+    if (message.includes("help") || message.includes("assist"))
+      return "I can help with booking, hospitals, services, contact info, registration, or payment. What do you need?"
+
+    if (message.includes("doctor") || message.includes("specialist"))
+      return "We have 150+ specialists. Browse doctors by specialty on the Hospitals page."
+
+    if (message.includes("cost") || message.includes("price") || message.includes("fee"))
+      return "Consultation fees vary. View fees during booking. Insurance accepted."
+
+    return null // Not an FAQ → let Gemini handle it
+  }
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim()) return
 
-    const newMessage = { text: input, role: "user" as const };
-    setMessages((prev) => [...prev, newMessage]);
-    setInput("");
-    setLoading(true);
+    const newMessage = { role: "user", text: input }
+    setMessages((prev) => [...prev, newMessage])
+
+    setInput("")
+    setLoading(true)
+
+    // ✅ Check FAQ first
+    const faqResponse = getFAQResponse(input)
+    if (faqResponse) {
+      setMessages((prev) => [...prev, { role: "model", text: faqResponse }])
+      setLoading(false)
+      return
+    }
 
     try {
-      const res = await fetch("/api/gemini", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: [...messages, newMessage] }),
-      });
+      })
 
-      const data = await res.json();
-
-      setMessages((prev) => [
-        ...prev,
-        { text: data.text || "⚠️ Error connecting to AI", role: data.role || "model" },
-      ]);
+      const data = await res.json()
+      setMessages((prev) => [...prev, { role: "model", text: data.text }])
     } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        { text: "⚠️ Something went wrong.", role: "model" },
-      ]);
+      setMessages((prev) => [...prev, { role: "model", text: "⚠️ Error connecting to AI" }])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <>
-      {/* Floating widget button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-5 right-5 z-50 p-4 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
-      >
-        💬
-      </button>
-
-      {/* Chat window */}
-      {isOpen && (
-        <div className="fixed bottom-20 right-5 w-80 h-96 bg-white shadow-xl rounded-2xl flex flex-col z-50 border">
-          {/* Messages */}
-          <div className="flex-1 p-3 overflow-y-auto space-y-2">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`p-2 rounded-lg max-w-[75%] ${
-                  msg.role === "user"
+    <div className="fixed bottom-4 right-4 w-96">
+      <Card className="shadow-2xl rounded-2xl">
+        <CardContent className="p-4 space-y-3">
+          <div className="h-80 overflow-y-auto space-y-2">
+            {messages.map((m, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-2 rounded-xl max-w-xs ${
+                  m.role === "user"
                     ? "bg-blue-500 text-white ml-auto"
-                    : "bg-gray-200 text-gray-900"
+                    : "bg-gray-200 text-black mr-auto"
                 }`}
               >
-                {msg.text}
-              </div>
+                {m.text}
+              </motion.div>
             ))}
-            {loading && <div className="text-sm text-gray-500">⏳ AI is typing...</div>}
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-gray-500"
+              >
+                Typing...
+              </motion.div>
+            )}
           </div>
 
-          {/* Input */}
-          <div className="p-3 border-t flex gap-2">
+          <div className="flex space-x-2">
             <input
-              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="flex-1 border rounded-lg p-2 text-sm"
-              placeholder="Type your message..."
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              className="flex-1 border rounded-xl px-3 py-2 text-sm"
+              placeholder="Type your message..."
             />
-            <button
-              onClick={sendMessage}
-              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
+            <Button onClick={sendMessage} disabled={loading}>
               Send
-            </button>
+            </Button>
           </div>
-        </div>
-      )}
-    </>
-  );
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
