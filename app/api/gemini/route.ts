@@ -1,48 +1,79 @@
-import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-// ✅ Use the flash model for faster short replies
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
-  systemInstruction:
-    "You are a hospital receptionist assistant. Reply short, direct, and clear.",
-});
+// app/api/chat/route.ts
+import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    const { messages } = await req.json()
 
-    if (!Array.isArray(messages)) {
-      return NextResponse.json({ text: "⚠️ Invalid input format" });
+    if (!messages || messages.length === 0) {
+      return NextResponse.json(
+        { text: "⚠️ No message received" },
+        { status: 400 }
+      )
     }
 
-    // Convert to Gemini history format
-    const history = messages.map((m: { role: string; text: string }) => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.text }],
-    }));
+    const prompt = messages.map((m: any) => `${m.role}: ${m.text}`).join("\n")
 
-    // Get latest user input
-    const lastUserMessage = messages
-      .filter((m) => m.role === "user")
-      .slice(-1)[0]?.text;
-
-    if (!lastUserMessage) {
-      return NextResponse.json({ text: "⚠️ No user message found" });
+    const apiKey = process.env.GOOGLE_API_KEY
+    if (!apiKey) {
+      return NextResponse.json(
+        { text: "⚠️ Server misconfiguration: missing API key" },
+        { status: 500 }
+      )
     }
 
-    const chat = model.startChat({ history });
-    const result = await chat.sendMessage(lastUserMessage);
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 200, // shorter, more direct answers
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+          ],
+        }),
+      }
+    )
 
-    const text = result.response?.text?.() || "⚠️ No response from AI";
+    if (!res.ok) {
+      return NextResponse.json(
+        { text: "⚠️ Error contacting AI service" },
+        { status: 502 }
+      )
+    }
 
-    return NextResponse.json({ text });
-  } catch (err: any) {
-    console.error("Chat API Error:", err);
-    return NextResponse.json({
-      text: "⚠️ AI service unavailable. Please try again later.",
-    });
+    const data = await res.json()
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+      "⚠️ No response generated"
+
+    return NextResponse.json({ text })
+  } catch (err) {
+    console.error("AI Error:", err)
+    return NextResponse.json(
+      { text: "⚠️ Unexpected server error" },
+      { status: 500 }
+    )
   }
 }
