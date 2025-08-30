@@ -1,84 +1,49 @@
-// app/api/gemini/route.ts
 import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-// Simple rule-based fallback responses
-function getFallbackResponse(userMessage: string): string {
-  const lower = userMessage.toLowerCase();
-
-  if (lower.includes("book") && lower.includes("appointment")) {
-    return "✅ I can help you book an appointment. Please provide the patient's name, preferred date, and department.";
-  }
-  if (lower.includes("payment") || lower.includes("bill")) {
-    return "💳 You can pay your bills at the hospital counter or through our secure online payment portal.";
-  }
-  if (lower.includes("lab") || lower.includes("test")) {
-    return "🧪 Lab tests can be scheduled. Please share the test name and preferred date.";
-  }
-  if (lower.includes("medicine") || lower.includes("pharmacy")) {
-    return "💊 Medicines can be collected from our pharmacy counter. Do you want me to check availability?";
-  }
-  if (lower.includes("emergency")) {
-    return "🚨 If this is a medical emergency, please call 102 immediately or rush to the nearest emergency ward.";
-  }
-
-  return "⚠️ Sorry, I couldn’t connect to the AI service right now. Please try again later.";
-}
+// ✅ Ensure model loads
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash",
+  systemInstruction:
+    "You are a hospital receptionist assistant. Answer **short and direct**. No long explanations. Always give the exact answer.",
+});
 
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
 
-    // Convert messages into Gemini format
-    const formattedMessages = messages.map((m: any) => ({
-      role: m.sender === "user" ? "user" : "model",
+    if (!Array.isArray(messages)) {
+      return NextResponse.json({ text: "⚠️ Invalid input format" });
+    }
+
+    // Convert frontend messages into Gemini history format
+    const history = messages.map((m: { role: string; text: string }) => ({
+      role: m.role === "user" ? "user" : "model",
       parts: [{ text: m.text }],
     }));
 
-    const resp = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: formattedMessages }),
-    });
+    // Last user message
+    const lastUserMessage = messages
+      .filter((m) => m.role === "user")
+      .slice(-1)[0]?.text;
 
-    if (!resp.ok) {
-      const errorText = await resp.text();
-      console.error("Gemini API Error:", errorText);
-
-      // Return fallback if Gemini fails
-      const lastMsg = messages[messages.length - 1]?.text || "";
-      return NextResponse.json({
-        text: getFallbackResponse(lastMsg),
-        role: "model",
-      });
+    if (!lastUserMessage) {
+      return NextResponse.json({ text: "⚠️ No user message found" });
     }
 
-    const data = await resp.json();
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessage(lastUserMessage);
 
-    // Safely extract AI response
-    const aiText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      data?.candidates?.[0]?.content?.text ??
-      data?.candidates?.[0]?.output ??
-      null;
+    // ✅ Safely extract text
+    const text = result.response?.text?.() || "⚠️ AI did not return a response";
 
-    if (!aiText) {
-      const lastMsg = messages[messages.length - 1]?.text || "";
-      return NextResponse.json({
-        text: getFallbackResponse(lastMsg),
-        role: "model",
-      });
-    }
-
-    return NextResponse.json({ text: aiText, role: "model" });
+    return NextResponse.json({ text });
   } catch (err: any) {
-    console.error("API route error:", err);
-
-    const fallback =
-      "⚠️ Something went wrong on our end. Please try again in a moment.";
-    return NextResponse.json({ text: fallback, role: "model" }, { status: 500 });
+    console.error("Chat API Error:", err);
+    return NextResponse.json({
+      text: "⚠️ AI service unavailable. Please try again later.",
+    });
   }
 }
