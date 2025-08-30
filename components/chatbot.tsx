@@ -16,7 +16,7 @@ export default function Chatbot() {
     if (message.includes("book") && message.includes("appointment"))
       return "To book an appointment, click on 'Book Appointment' on the homepage. Login first, then select hospital, doctor, and slot."
 
-    if (message.includes("services") || message.includes("what do you offer"))
+    if (message.includes("services") || message.includes("offer"))
       return "We offer General Consultation, Specialist Care, Emergency Services, and Health Checkups."
 
     if (message.includes("hospital") && message.includes("location"))
@@ -38,7 +38,7 @@ export default function Chatbot() {
       return "Hello! Welcome to HIND SWAASTH SEVA. How can I help?"
 
     if (message.includes("help") || message.includes("assist"))
-      return "I can help with booking, hospitals, services, contact info, registration, or payment. What do you need?"
+      return "I can help with booking, hospitals, services, contact info, registration, or payment,book,appointment,services,offer,hospital,location,emergency,urgent,payment,pay,doctor,cost. What do you need?"
 
     if (message.includes("doctor") || message.includes("specialist"))
       return "We have 150+ specialists. Browse doctors by specialty on the Hospitals page."
