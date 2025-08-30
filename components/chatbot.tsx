@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +13,7 @@ interface Message {
   timestamp: Date
 }
 
-export default function Chatbot() {
+export default function Chatbot(): JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -40,7 +38,6 @@ export default function Chatbot() {
   const getBotResponse = (userMessage: string): string => {
     const message = userMessage.toLowerCase()
 
-    // FAQ responses
     if (message.includes("book") && message.includes("appointment")) {
       return "To book an appointment, click on \"Book Appointment\" button on the homepage. You'll need to login first if you haven't already. Then select your preferred hospital, doctor, and time slot."
     }
@@ -85,7 +82,6 @@ export default function Chatbot() {
       return "Consultation fees vary by doctor and specialty. You can view specific fees during the appointment booking process. We also accept insurance and offer various payment plans."
     }
 
-    // Default responses for unmatched queries
     const defaultResponses = [
       "I'm here to help! Could you please be more specific about what you'd like to know?",
       "I didn't quite understand that. You can ask me about appointments, services, hospitals, or contact information.",
@@ -95,7 +91,7 @@ export default function Chatbot() {
     return defaultResponses[Math.floor(Math.random() * defaultResponses.length)]
   }
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!inputValue.trim()) return
 
     const userMessage: Message = {
@@ -109,24 +105,19 @@ export default function Chatbot() {
     setInputValue("")
     setIsTyping(true)
 
-    // Simulate bot typing delay
-    setTimeout(
-      () => {
-        const botResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          text: getBotResponse(inputValue),
-          sender: "bot",
-          timestamp: new Date(),
-        }
-
-        setMessages((prev) => [...prev, botResponse])
-        setIsTyping(false)
-      },
-      1000 + Math.random() * 1000,
-    ) // Random delay between 1-2 seconds
+    setTimeout(() => {
+      const botResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: getBotResponse(userMessage.text),
+        sender: "bot",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, botResponse])
+      setIsTyping(false)
+    }, 1000 + Math.random() * 1000)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleSendMessage()
     }
@@ -164,17 +155,24 @@ export default function Chatbot() {
                     className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                        className={`max-w-[80%] p-3 rounded-lg break-words overflow-hidden ${
-                        message.sender === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
-                        }`}
-                        >
-                    <div className="flex items-start space-x-2">
-                    {message.sender === "bot" && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                    {message.sender === "user" && <User className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                   <div className="text-sm whitespace-pre-line break-words">{message.text}</div>
-                   </div>
-                   </div>
-
+                      className={`max-w-[80%] p-3 rounded-lg break-words overflow-hidden ${
+                        message.sender === "user"
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-900"
+                      }`}
+                    >
+                      <div className="flex items-start space-x-2">
+                        {message.sender === "bot" && (
+                          <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        )}
+                        {message.sender === "user" && (
+                          <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="text-sm whitespace-pre-line break-words">
+                          {message.text}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
 
@@ -207,12 +205,16 @@ export default function Chatbot() {
                   <Input
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     placeholder="Type your message..."
                     className="flex-1"
                     disabled={isTyping}
                   />
-                  <Button onClick={handleSendMessage} disabled={!inputValue.trim() || isTyping} size="sm">
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim() || isTyping}
+                    size="sm"
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
