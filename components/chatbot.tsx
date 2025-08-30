@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -84,15 +83,13 @@ export default function Chatbot() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-96">
+    <div className="fixed bottom-4 right-4 w-96 z-50">
       <Card className="shadow-2xl rounded-2xl">
         <CardContent className="p-4 space-y-3">
           <div className="h-80 overflow-y-auto space-y-2">
             {messages.map((m, i) => (
-              <motion.div
+              <div
                 key={i}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
                 className={`p-2 rounded-xl max-w-xs ${
                   m.role === "user"
                     ? "bg-blue-500 text-white ml-auto"
@@ -100,16 +97,12 @@ export default function Chatbot() {
                 }`}
               >
                 {m.text}
-              </motion.div>
+              </div>
             ))}
             {loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-sm text-gray-500"
-              >
+              <div className="text-sm text-gray-500">
                 Typing...
-              </motion.div>
+              </div>
             )}
           </div>
 
