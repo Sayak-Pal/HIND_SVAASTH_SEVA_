@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -60,11 +59,8 @@ export default function Chatbot() {
       <CardContent className="p-4">
         <div className="h-80 overflow-y-auto space-y-2 mb-4">
           {messages.map((msg) => (
-            <motion.div
+            <div
               key={msg.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
               className={`p-2 rounded-lg max-w-[80%] ${
                 msg.sender === "user"
                   ? "bg-blue-500 text-white ml-auto"
@@ -72,16 +68,10 @@ export default function Chatbot() {
               }`}
             >
               {msg.text}
-            </motion.div>
+            </div>
           ))}
           {loading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-gray-500 text-sm"
-            >
-              Typing…
-            </motion.div>
+            <div className="text-gray-500 text-sm">Typing…</div>
           )}
         </div>
 
