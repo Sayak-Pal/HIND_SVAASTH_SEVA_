@@ -35,9 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ text: "No messages provided." }, { status: 400 });
     }
 
-    // Build `contents` in the same shape your frontend used previously
     const contents = messages.map((m) => {
-      // map frontend sender names to role names expected by the REST API payload
       const role = (m.sender === "ai" || m.sender === "bot") ? "model" : "user";
       return {
         role,
@@ -45,7 +43,6 @@ export async function POST(req: Request) {
       };
     });
 
-    // If there's PDF text, append it as an additional 'user' part (truncate to safe size)
     if (pdfText) {
       const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + "..." : pdfText;
       contents.push({
@@ -60,33 +57,28 @@ export async function POST(req: Request) {
 
     const resp = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents }),
     });
 
-    // If non-OK, log and fall through to fallback handling
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => "");
-      console.error("Gemini REST error:", resp.status, text);
-    } else {
+    if (resp.ok) {
       const data = await resp.json().catch(() => null);
 
-      // Try a few plausible response paths returned by the REST endpoint
       const aiText =
         data?.candidates?.[0]?.content?.parts?.[0]?.text ??
         data?.candidates?.[0]?.content?.text ??
         data?.candidates?.[0]?.output ??
-        data?.output?.?.[0]?.content?.[0]?.text ??
+        data?.output?.[0]?.content?.[0]?.text ??
         null;
 
       if (aiText && String(aiText).trim().length > 0) {
         return NextResponse.json({ text: String(aiText).trim() });
       }
+    } else {
+      const text = await resp.text().catch(() => "");
+      console.error("Gemini REST error:", resp.status, text);
     }
 
-    // If we reach here, either response was empty / non-OK / unparsable -> use fallback
     const lastMsg = messages[messages.length - 1]?.text ?? "";
     const fallback = getFallbackResponse(lastMsg) ?? "I'm sorry — I couldn't process that. Can you rephrase?";
     return NextResponse.json({ text: fallback });
