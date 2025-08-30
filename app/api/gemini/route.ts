@@ -3,11 +3,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-// ✅ Ensure model loads
+// ✅ Use the flash model for faster short replies
 const model = genAI.getGenerativeModel({
   model: "gemini-1.5-flash",
   systemInstruction:
-    "You are a hospital receptionist assistant. Answer **short and direct**. No long explanations. Always give the exact answer.",
+    "You are a hospital receptionist assistant. Reply short, direct, and clear.",
 });
 
 export async function POST(req: Request) {
@@ -18,13 +18,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ text: "⚠️ Invalid input format" });
     }
 
-    // Convert frontend messages into Gemini history format
+    // Convert to Gemini history format
     const history = messages.map((m: { role: string; text: string }) => ({
       role: m.role === "user" ? "user" : "model",
       parts: [{ text: m.text }],
     }));
 
-    // Last user message
+    // Get latest user input
     const lastUserMessage = messages
       .filter((m) => m.role === "user")
       .slice(-1)[0]?.text;
@@ -36,8 +36,7 @@ export async function POST(req: Request) {
     const chat = model.startChat({ history });
     const result = await chat.sendMessage(lastUserMessage);
 
-    // ✅ Safely extract text
-    const text = result.response?.text?.() || "⚠️ AI did not return a response";
+    const text = result.response?.text?.() || "⚠️ No response from AI";
 
     return NextResponse.json({ text });
   } catch (err: any) {
