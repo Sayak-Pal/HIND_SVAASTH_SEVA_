@@ -1,123 +1,84 @@
-// app/api/chat/route.ts
+// app/api/gemini/route.ts
 import { NextResponse } from "next/server";
 
-const FALLBACK_RESPONSES: Record<string, string> = {
-  appointment:
-    "📅 I can help you book an appointment. Which doctor or department would you like?",
-  payment:
-    "💳 For payments, please visit our billing section or ask me to generate a payment link.",
-  emergency: "⚠️ This seems urgent. Please call our emergency helpline: 108 immediately.",
-  medicine:
-    "💊 For medicines, please provide your prescription ID so I can fetch the details.",
-};
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
-function getFallbackResponse(userInput: string | undefined): string | null {
-  if (!userInput) return null;
-  const lower = userInput.toLowerCase();
-  for (const k of Object.keys(FALLBACK_RESPONSES)) {
-    if (lower.includes(k)) return FALLBACK_RESPONSES[k];
+// Simple rule-based fallback responses
+function getFallbackResponse(userMessage: string): string {
+  const lower = userMessage.toLowerCase();
+
+  if (lower.includes("book") && lower.includes("appointment")) {
+    return "✅ I can help you book an appointment. Please provide the patient's name, preferred date, and department.";
   }
-  return null;
+  if (lower.includes("payment") || lower.includes("bill")) {
+    return "💳 You can pay your bills at the hospital counter or through our secure online payment portal.";
+  }
+  if (lower.includes("lab") || lower.includes("test")) {
+    return "🧪 Lab tests can be scheduled. Please share the test name and preferred date.";
+  }
+  if (lower.includes("medicine") || lower.includes("pharmacy")) {
+    return "💊 Medicines can be collected from our pharmacy counter. Do you want me to check availability?";
+  }
+  if (lower.includes("emergency")) {
+    return "🚨 If this is a medical emergency, please call 102 immediately or rush to the nearest emergency ward.";
+  }
+
+  return "⚠️ Sorry, I couldn’t connect to the AI service right now. Please try again later.";
 }
 
-/**
- * POST /api/chat
- * Body: { messages: [{ sender, text }], pdfText?: string }
- */
 export async function POST(req: Request) {
   try {
-    // Ensure API key is set
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      console.error("Missing GEMINI_API_KEY env var.");
-      return NextResponse.json(
-        { text: "Server configuration error: missing GEMINI_API_KEY." },
-        { status: 500 }
-      );
-    }
+    const { messages } = await req.json();
 
-    const body = await req.json().catch(() => ({}));
-    const messages: any[] = Array.isArray(body.messages) ? body.messages : [];
-    const pdfText: string | undefined =
-      typeof body.pdfText === "string" ? body.pdfText : undefined;
+    // Convert messages into Gemini format
+    const formattedMessages = messages.map((m: any) => ({
+      role: m.sender === "user" ? "user" : "model",
+      parts: [{ text: m.text }],
+    }));
 
-    if (messages.length === 0) {
-      return NextResponse.json({ text: "No messages provided." }, { status: 400 });
-    }
-
-    // Build contents for the Generative Language REST API
-    // Map front-end senders to roles: 'model' for ai/bot, otherwise 'user'
-    const contents = messages.map((m) => {
-      const role = m.sender === "ai" || m.sender === "bot" ? "model" : "user";
-      return { role, parts: [{ text: String(m.text ?? "") }] };
-    });
-
-    // Append PDF text (truncated) if provided
-    if (pdfText) {
-      const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + "..." : pdfText;
-      contents.push({ role: "user", parts: [{ text: `[PDF_CONTENT]\n${truncated}` }] });
-    }
-
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(
-      key
-    )}`;
-
-    const resp = await fetch(endpoint, {
+    const resp = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents }),
-      // optionally add timeout logic in production
+      body: JSON.stringify({ contents: formattedMessages }),
     });
 
     if (!resp.ok) {
-      // try to read body for a helpful message
-      const text = await resp.text().catch(() => "");
-      console.error("Gemini REST returned non-OK:", resp.status, text);
-      // Return a helpful JSON message to the client
-      return NextResponse.json(
-        { text: `AI service returned ${resp.status}. ${text ? `Details: ${text}` : ""}`.trim() },
-        { status: 502 }
-      );
+      const errorText = await resp.text();
+      console.error("Gemini API Error:", errorText);
+
+      // Return fallback if Gemini fails
+      const lastMsg = messages[messages.length - 1]?.text || "";
+      return NextResponse.json({
+        text: getFallbackResponse(lastMsg),
+        role: "model",
+      });
     }
 
-    // Parse JSON safely
-    const data = await resp.json().catch((err) => {
-      console.error("Failed parsing Gemini JSON:", err);
-      return null;
-    });
+    const data = await resp.json();
 
-    // Try a few common shapes to extract AI text (be permissive)
+    // Safely extract AI response
     const aiText =
-      // standard candidate -> content -> parts -> text
       data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      // some other variant
       data?.candidates?.[0]?.content?.text ??
-      // older/alternate shape
       data?.candidates?.[0]?.output ??
-      // another possible shape
-      data?.output?.[0]?.content?.[0]?.text ??
-      // less structured fallback
-      data?.text ??
       null;
 
-    if (aiText && String(aiText).trim().length > 0) {
-      return NextResponse.json({ text: String(aiText).trim() });
+    if (!aiText) {
+      const lastMsg = messages[messages.length - 1]?.text || "";
+      return NextResponse.json({
+        text: getFallbackResponse(lastMsg),
+        role: "model",
+      });
     }
 
-    // If no AI text, fall back to rule-based response for critical intents
-    const lastMsg = messages[messages.length - 1]?.text ?? "";
-    const fallback = getFallbackResponse(lastMsg) ?? "I'm sorry — I couldn't process that. Can you rephrase?";
-    console.warn("AI returned empty or unparseable response. Falling back.", { data });
-    return NextResponse.json({ text: fallback });
+    return NextResponse.json({ text: aiText, role: "model" });
   } catch (err: any) {
-    console.error("Unhandled error in /api/chat:", err);
-    const message =
-      typeof err?.message === "string"
-        ? `Unhandled error contacting AI service: ${err.message}`
-        : "Unhandled server error contacting AI service.";
-    return NextResponse.json(
-      { text: `⚠️ ${message} — using fallback. You can still ask about appointments or emergencies.` },
-      { status: 500 }
-    );
+    console.error("API route error:", err);
+
+    const fallback =
+      "⚠️ Something went wrong on our end. Please try again in a moment.";
+    return NextResponse.json({ text: fallback, role: "model" }, { status: 500 });
   }
 }
