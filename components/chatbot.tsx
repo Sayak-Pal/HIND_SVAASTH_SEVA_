@@ -16,8 +16,6 @@ interface Message {
 }
 
 export default function Chatbot() {
-
-
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -131,7 +129,6 @@ export default function Chatbot() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSendMessage()
-
     }
   }
 
@@ -140,8 +137,6 @@ export default function Chatbot() {
       {/* Chat Toggle Button */}
       <div className="fixed bottom-6 right-6 z-50">
         <Button
-
-
           onClick={() => setIsOpen(!isOpen)}
           className="rounded-full w-14 h-14 bg-blue-600 hover:bg-blue-700 shadow-lg"
         >
@@ -167,9 +162,6 @@ export default function Chatbot() {
                   <div
                     key={message.id}
                     className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
-
-
-
                   >
                     <div
                         className={`max-w-[80%] p-3 rounded-lg break-words overflow-hidden ${
@@ -228,7 +220,8 @@ export default function Chatbot() {
             </CardContent>
           </Card>
         </div>
-
+      )}
+    </>
 
 
 
