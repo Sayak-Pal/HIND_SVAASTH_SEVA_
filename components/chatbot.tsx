@@ -85,20 +85,6 @@ export default function Chatbot() {
 
     if (message.includes("cost") || message.includes("price") || message.includes("fee")) {
       return "Consultation fees vary by doctor and specialty. You can view specific fees during the appointment booking process. We also accept insurance and offer various payment plans."
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     }
 
     // Default responses for unmatched queries
@@ -238,25 +224,6 @@ export default function Chatbot() {
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
               </div>
             </CardContent>
           </Card>
@@ -283,3 +250,6 @@ export default function Chatbot() {
 
 
 
+      )}
+    </>
+  )
