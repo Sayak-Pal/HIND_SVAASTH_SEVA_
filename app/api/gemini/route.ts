@@ -1,79 +1,84 @@
-// app/api/chat/route.ts
-import { NextResponse } from "next/server"
+// app/api/gemini/route.ts
+import { NextResponse } from "next/server";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+
+// Simple rule-based fallback responses
+function getFallbackResponse(userMessage: string): string {
+  const lower = userMessage.toLowerCase();
+
+  if (lower.includes("book") && lower.includes("appointment")) {
+    return "✅ I can help you book an appointment. Please provide the patient's name, preferred date, and department.";
+  }
+  if (lower.includes("payment") || lower.includes("bill")) {
+    return "💳 You can pay your bills at the hospital counter or through our secure online payment portal.";
+  }
+  if (lower.includes("lab") || lower.includes("test")) {
+    return "🧪 Lab tests can be scheduled. Please share the test name and preferred date.";
+  }
+  if (lower.includes("medicine") || lower.includes("pharmacy")) {
+    return "💊 Medicines can be collected from our pharmacy counter. Do you want me to check availability?";
+  }
+  if (lower.includes("emergency")) {
+    return "🚨 If this is a medical emergency, please call 102 immediately or rush to the nearest emergency ward.";
+  }
+
+  return "⚠️ Sorry, I couldn’t connect to the AI service right now. Please try again later.";
+}
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json()
+    const { messages } = await req.json();
 
-    if (!messages || messages.length === 0) {
-      return NextResponse.json(
-        { text: "⚠️ No message received" },
-        { status: 400 }
-      )
+    // Convert messages into Gemini format
+    const formattedMessages = messages.map((m: any) => ({
+      role: m.sender === "user" ? "user" : "model",
+      parts: [{ text: m.text }],
+    }));
+
+    const resp = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: formattedMessages }),
+    });
+
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      console.error("Gemini API Error:", errorText);
+
+      // Return fallback if Gemini fails
+      const lastMsg = messages[messages.length - 1]?.text || "";
+      return NextResponse.json({
+        text: getFallbackResponse(lastMsg),
+        role: "model",
+      });
     }
 
-    const prompt = messages.map((m: any) => `${m.role}: ${m.text}`).join("\n")
+    const data = await resp.json();
 
-    const apiKey = process.env.GOOGLE_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(
-        { text: "⚠️ Server misconfiguration: missing API key" },
-        { status: 500 }
-      )
+    // Safely extract AI response
+    const aiText =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      data?.candidates?.[0]?.content?.text ??
+      data?.candidates?.[0]?.output ??
+      null;
+
+    if (!aiText) {
+      const lastMsg = messages[messages.length - 1]?.text || "";
+      return NextResponse.json({
+        text: getFallbackResponse(lastMsg),
+        role: "model",
+      });
     }
 
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 200, // shorter, more direct answers
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-          ],
-        }),
-      }
-    )
+    return NextResponse.json({ text: aiText, role: "model" });
+  } catch (err: any) {
+    console.error("API route error:", err);
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { text: "⚠️ Error contacting AI service" },
-        { status: 502 }
-      )
-    }
-
-    const data = await res.json()
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-      "⚠️ No response generated"
-
-    return NextResponse.json({ text })
-  } catch (err) {
-    console.error("AI Error:", err)
-    return NextResponse.json(
-      { text: "⚠️ Unexpected server error" },
-      { status: 500 }
-    )
+    const fallback =
+      "⚠️ Something went wrong on our end. Please try again in a moment.";
+    return NextResponse.json({ text: fallback, role: "model" }, { status: 500 });
   }
 }
